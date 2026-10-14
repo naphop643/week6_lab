@@ -1,0 +1,53 @@
+package main
+
+import (
+	"context"
+	"log"
+	"net/http"
+	"os"
+	"time"
+
+	"moviehub/handler"
+	"moviehub/mw"
+	"moviehub/store"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+func main() {
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		log.Fatal("กรุณากำหนด DATABASE_URL")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	pool, err := pgxpool.New(ctx, databaseURL)
+	if err != nil {
+		log.Fatalf("เชื่อมต่อ PostgreSQL ไม่สำเร็จ: %v", err)
+	}
+	defer pool.Close()
+
+	if err := pool.Ping(ctx); err != nil {
+		log.Fatalf("ติดต่อ PostgreSQL ไม่สำเร็จ: %v", err)
+	}
+
+	log.Println("เชื่อมต่อ PostgreSQL สำเร็จ")
+
+	st := &store.Store{Pool: pool}
+	h := &handler.Handler{Store: st}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /api/register", h.Register)
+	mux.HandleFunc("POST /api/login", h.Login)
+	mux.HandleFunc("GET /api/movies", h.SearchMovies)
+	mux.HandleFunc("GET /api/movies/{id}/reviews", h.ListReviews)
+	mux.Handle("POST /api/movies/{id}/reviews",
+		mw.RequireAuth(http.HandlerFunc(h.CreateReview)))
+
+	mux.Handle("GET /api/me", mw.RequireAuth(http.HandlerFunc(h.Me)))
+
+	log.Println("MovieHub API พร้อมที่ http://localhost:8080")
+	log.Fatal(http.ListenAndServe(":8080", mw.Logging(mux)))
+}
