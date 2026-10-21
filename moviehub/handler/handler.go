@@ -247,3 +247,25 @@ func (h *Handler) CreateReview(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusCreated, review)
 }
+
+func (h *Handler) ListMembers(w http.ResponseWriter, r *http.Request) {
+	members, err := h.Store.ListMembers(r.Context())
+	if err != nil {
+		internal(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"items": members,
+	})
+}
+
+func (h *Handler) AdminStats(w http.ResponseWriter, r *http.Request) {
+	stats, err := h.Store.GetAdminStats(r.Context())
+	if err != nil {
+		internal(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, stats)
+}

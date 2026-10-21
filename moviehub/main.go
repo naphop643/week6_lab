@@ -39,14 +39,33 @@ func main() {
 	h := &handler.Handler{Store: st}
 
 	mux := http.NewServeMux()
+
+	// Authentication
 	mux.HandleFunc("POST /api/register", h.Register)
 	mux.HandleFunc("POST /api/login", h.Login)
+	mux.Handle("GET /api/me",
+		mw.RequireAuth(http.HandlerFunc(h.Me)),
+	)
+
+	// Movies
 	mux.HandleFunc("GET /api/movies", h.SearchMovies)
 	mux.HandleFunc("GET /api/movies/{id}/reviews", h.ListReviews)
 	mux.Handle("POST /api/movies/{id}/reviews",
-		mw.RequireAuth(http.HandlerFunc(h.CreateReview)))
+		mw.RequireAuth(http.HandlerFunc(h.CreateReview)),
+	)
 
-	mux.Handle("GET /api/me", mw.RequireAuth(http.HandlerFunc(h.Me)))
+	// Admin: ต้อง Login และมี role เป็น admin
+	mux.Handle("GET /api/admin/members",
+		mw.RequireAuth(
+			mw.RequireAdmin(http.HandlerFunc(h.ListMembers)),
+		),
+	)
+
+	mux.Handle("GET /api/admin/stats",
+		mw.RequireAuth(
+			mw.RequireAdmin(http.HandlerFunc(h.AdminStats)),
+		),
+	)
 
 	log.Println("MovieHub API พร้อมที่ http://localhost:8080")
 	log.Fatal(http.ListenAndServe(":8080", mw.Logging(mux)))

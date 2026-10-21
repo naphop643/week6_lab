@@ -42,3 +42,23 @@ func RequireAuth(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
+
+// RequireAdmin อนุญาตเฉพาะผู้ใช้ที่มี role เป็น admin
+// ต้องใช้หลัง RequireAuth
+func RequireAdmin(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		claims, ok := r.Context().Value(MemberClaimsKey).(*auth.Claims)
+
+		if !ok || claims == nil {
+			http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+			return
+		}
+
+		if claims.Role != "admin" {
+			http.Error(w, `{"error":"forbidden"}`, http.StatusForbidden)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
